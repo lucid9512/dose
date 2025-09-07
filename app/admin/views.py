@@ -1,3 +1,4 @@
+import logging
 from sqladmin import ModelView
 from wtforms import PasswordField, SelectField
 from markupsafe import Markup
@@ -46,38 +47,62 @@ class UserAdmin(ModelView, model=User):
 
         return Form
 
-    # 폼이 열릴 때 현재 Role 값 세팅
-    async def on_form_prefill(self, form, model):
-        if model and model.id:
-            async with self.session_maker() as session:
-                current = (
-                    await session.execute(
-                        select(UserRole.role_id).where(UserRole.user_id == model.id)
-                    )
-                ).scalar_one_or_none()
-            if current:
-                form.role_id.data = current
+
 
     # 저장 직전 비밀번호 & Role 처리
     async def on_model_change(self, data, model, is_created, request):
-        # 비밀번호 처리
-        password = data.get("password")  # dict에서 꺼내야 함
+        # Email 보장
+        email = data.get("email")
+        if not email:
+            raise ValueError("Email은 필수 입력 값입니다.")
+        model.email = email
 
+        # 비밀번호 처리 (가상 필드 → pop으로 제거)
+        password = data.pop("password", None)
         if is_created:
             if not (password and password.strip()):
                 raise ValueError("신규 생성 시 비밀번호는 필수입니다.")
             model.hashed_password = hasher.hash(password)
-        else:
-            if password and password.strip():
-                model.hashed_password = hasher.hash(password)
+        elif password and password.strip():
+            model.hashed_password = hasher.hash(password)
 
-        # Role 처리 (단일 선택 강제)
-        role_id = data.get("role_id")
-        async with self.session_maker() as session:
-            await session.execute(delete(UserRole).where(UserRole.user_id == model.id))
-            if role_id:
-                session.add(UserRole(user_id=model.id, role_id=int(role_id)))
-            await session.commit()
+        # Role 처리 (가상 필드 → pop으로 제거)
+        role_id = data.pop("role_id", None)
+        if not role_id:
+            raise ValueError("Role은 반드시 선택해야 합니다.")
+
+        # 👉 Role 이름 가져오기
+        async with self.session_maker() as s2:
+            role = await s2.get(Role, int(role_id))
+            
+        # Role 이름 확인 후 superuser 설정
+        # Role 조회
+        async with self.session_maker() as s2:
+            role = await s2.get(Role, int(role_id))
+
+        # is_superuser 값 계산
+        is_superuser = True if role and role.name.lower() == "admin" else False
+
+        # 둘 다 세팅해서 확실히 반영
+        data["is_superuser"] = is_superuser
+        model.is_superuser = is_superuser
+
+
+
+        # UserRole 매핑
+        if is_created:
+            # 생성 시: flush로 model.id 확보
+            session = request.state.session
+            await session.flush()
+            async with self.session_maker() as s2:
+                s2.add(UserRole(user_id=model.id, role_id=int(role_id)))
+                await s2.commit()
+        else:
+            # 수정 시: 기존 매핑 삭제 후 새 Role 추가
+            async with self.session_maker() as s2:
+                await s2.execute(delete(UserRole).where(UserRole.user_id == model.id))
+                s2.add(UserRole(user_id=model.id, role_id=int(role_id)))
+                await s2.commit()
 
 
     # 안내 문구 추가
