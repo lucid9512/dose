@@ -1,5 +1,5 @@
 import re
-from typing import Any, Dict
+from typing import Any, Dict, List, Union, Iterable
 from pydantic import BaseModel
 
 # -------------------
@@ -33,23 +33,40 @@ class VaModelReq(BaseModel):
     camelCase → snake_case 변환해서 내부에서 사용
     """
     class Config:
-        alias_generator = to_camel   # snake → camel alias 자동 생성
+        alias_generator = to_snake   # snake → camel alias 자동 생성
         populate_by_name = True      # snake_case 입력도 허용
         from_attributes = True
         arbitrary_types_allowed = True
 
 
-# -------------------
-# Base Response Model
-# -------------------
+def parse_keys(data: Union[Dict, List], types: str = "camel") -> Union[Dict, List]:
+    """
+    dict/list 전체를 camelCase or snake_case로 변환 (재귀 지원)
+    """
+    def snake_case(val: str) -> str:
+        import re
+        first = re.sub(r"(.)([A-Z][a-z]+)", r"\1_\2", val)
+        return re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", first).lower()
+
+    def keys_to_case(d: Dict[str, Any]) -> Dict[str, Any]:
+        if types == "camel":
+            return {to_camel(k): v for k, v in d.items()}
+        elif types == "snake":
+            return {snake_case(k): v for k, v in d.items()}
+        return d
+
+    if isinstance(data, list):
+        return [parse_keys(item, types) if isinstance(item, (dict, list)) else item for item in data]
+    elif isinstance(data, dict):
+        return {k: parse_keys(v, types) if isinstance(v, (dict, list)) else v
+                for k, v in keys_to_case(data).items()}
+    else:
+        return data
+
+# --- 베이스 스키마 ---
 class VaModelRes(BaseModel):
-    """
-    snake_case 모델을 camelCase로 응답 변환
-    """
     class Config:
+        from_attributes = True  # ORM → Pydantic 허용
         alias_generator = to_camel
         populate_by_name = True
         from_attributes = True
-
-    def resp(self) -> Dict[str, Any]:
-        return self.dict(by_alias=True, exclude_none=True)

@@ -2,14 +2,15 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.db import get_db
 from app.models.test import Test
-from app.schemas.req.test import TestCreate, TestRead
-from app.services.test import create_test
+from app.schemas.req.test import TestCreate
+from app.schemas.res.test import TestReadRes
+from app.services.test import create_test, get_tests
 from app.services.auth import current_active_user
 from sqlalchemy import select
 
 router = APIRouter(prefix="/tests", tags=["tests"])
 
-@router.post("/", response_model=TestRead)
+@router.post("/", response_model=TestReadRes)
 async def create_test_item(
     test_in: TestCreate,
     db: AsyncSession = Depends(get_db),
@@ -17,10 +18,9 @@ async def create_test_item(
 ):
     return await create_test(db, test_in)
 
-@router.get("/", response_model=list[TestRead])
+@router.get("/", response_model=list[TestReadRes])
 async def get_tests_item(
     db: AsyncSession = Depends(get_db),
     user=Depends(current_active_user),
 ):
-    result = await db.execute(select(Test))
-    return result.scalars().all()
+    return await get_tests(db)
