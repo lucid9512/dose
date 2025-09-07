@@ -2,12 +2,16 @@ from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.orm import declarative_base
 from app.core.config import settings
-from app.models import Base 
 
 # 반드시 asyncpg 드라이버 사용
 # 예: postgresql+asyncpg://user:password@localhost:5432/dose
 # 비동기 엔진 생성
-engine = create_async_engine(settings.DATABASE_URL, echo=False, future=True)
+engine = create_async_engine(
+    settings.DATABASE_URL,
+    echo=settings.DEBUG,
+    pool_pre_ping=True,
+    future=True,
+)
 
 # 세션 팩토리
 async_session_maker = async_sessionmaker(

@@ -3,24 +3,24 @@ from fastapi_users.db import SQLAlchemyBaseUserTable
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy import Integer, String, DateTime, func
 from sqlalchemy import ForeignKey
-from app.models import Base
+from app.models.base import BaseModel
 
 
 
-class UserRole(Base):
+class UserRole(BaseModel):
     __tablename__ = "roles_users"
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True)
     role_id: Mapped[int] = mapped_column(ForeignKey("roles.id"), primary_key=True)
 
 
-class Role(Base):
+class Role(BaseModel):
     __tablename__ = "roles"
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(10), unique=True, nullable=False)  
     descrition: Mapped[str] = mapped_column(String(100), nullable=True) 
 
 
-class User(SQLAlchemyBaseUserTable[int], Base):
+class User(SQLAlchemyBaseUserTable[int], BaseModel):
     __tablename__ = "users"  # 테이블 이름 명시
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)

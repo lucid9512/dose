@@ -1,7 +1,10 @@
 from fastapi import APIRouter
-from app.services.auth.manager import fastapi_users
-from app.services.auth.backend import auth_backend
-from app.schemas.user import UserRead, UserCreate, UserUpdate
+from app.services.auth import fastapi_users, current_active_user
+from app.core.auth.backend import auth_backend
+from app.schemas.req.auth import RefreshRequest
+from app.schemas.res.auth import RefreshResponse
+from app.services.auth.token_service import AuthService
+from app.schemas.user import UserRead, UserCreate, UserUpdate 
 
 router = APIRouter()
 
@@ -9,7 +12,7 @@ router = APIRouter()
 router.include_router(
     fastapi_users.get_auth_router(auth_backend),
     prefix="/auth/jwt",
-    tags=["auth"],
+    tags=["auth"]
 )
 
 # 회원가입
@@ -25,3 +28,8 @@ router.include_router(
     prefix="/users",
     tags=["users"],
 )
+
+# Refresh API
+@router.post("/auth/jwt/refresh", response_model=RefreshResponse, tags=["auth"])
+async def refresh_token(request: RefreshRequest):
+    return AuthService.refresh(request.refresh_token)

@@ -52,11 +52,14 @@ def create_user(
     """
     async def _create():
         async with async_session_maker() as session:
+            # role 값이 "admin"이면 슈퍼유저로 처리
+            is_superuser_flag = role.strip().lower() == "admin"
             # 유저 생성
             user = User(
                 email=email,
                 hashed_password=hasher.hash(password),  # bcrypt 해싱
                 is_active=True,
+                is_superuser=is_superuser_flag  # admin이면 True
             )
             session.add(user)
             await session.flush()  # user.id 확보

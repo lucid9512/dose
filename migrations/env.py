@@ -9,13 +9,13 @@ from sqlalchemy.ext.asyncio import create_async_engine
 # 프로젝트 루트 경로 추가
 sys.path.append(str(pathlib.Path(__file__).resolve().parents[1]))
 
+from app.models import Base
 from app.core.config import settings   # settings에서 DB URL 가져오기
-from app.core.db import Base, DATABASE_URL
 from app import models
 
 # Alembic Config 객체
 config = context.config
-config.set_main_option("sqlalchemy.url", DATABASE_URL)
+config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
 
 # 로깅 설정
 if config.config_file_name is not None:
@@ -49,7 +49,7 @@ def do_run_migrations(connection) -> None:
 
 async def run_migrations_online() -> None:
     """'online' 모드에서 마이그레이션 실행 (async engine 사용)"""
-    connectable = create_async_engine(DATABASE_URL, echo=True)
+    connectable = create_async_engine(settings.DATABASE_URL, echo=True)
 
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)

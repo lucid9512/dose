@@ -1,23 +1,14 @@
-# app/auth/manager.py
 from fastapi import Depends
-from fastapi_users import BaseUserManager, FastAPIUsers
+from fastapi_users import BaseUserManager, IntegerIDMixin
 from app.models.user import User
-from app.core.db import get_db
-from sqlalchemy.ext.asyncio import AsyncSession
-from app.services.auth.backend import auth_backend
+from app.services.auth.dependencies import get_user_db
+from app.core.config import settings
 
-class UserManager(BaseUserManager[User, int]):
-    user_db_model = User
+# fastapi-users에서 요구하는 UserManager
+class UserManager(IntegerIDMixin, BaseUserManager[User, int]):
+    reset_password_token_secret = settings.SECRET_KEY
+    verification_token_secret = settings.SECRET_KEY
 
-    async def on_after_register(self, user: User, request=None):
-        print(f"- 새 유저 등록됨: {user.email}")
-
-async def get_user_manager(session: AsyncSession = Depends(get_db)):
-    yield UserManager(session)
-
-# FastAPI Users 초기화
-fastapi_users = FastAPIUsers[User, int](
-    get_user_manager,
-    [auth_backend],
-)
-
+# UserManager DI (Depends에서 주입 가능)
+async def get_user_manager(user_db=Depends(get_user_db)):
+    yield UserManager(user_db)
